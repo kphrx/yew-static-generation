@@ -12,6 +12,8 @@ name = "hydrate"
 required-features = ["hydration"]
 
 [dependencies]
+async-recursion = "1.0.0"
+async-std = "1.12.0"
 yew = { version = "0.20.0", features = ["ssr", "hydration"] }
 
 [features]
