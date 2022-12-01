@@ -3,5 +3,21 @@ name = "pages"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "generate"
+required-features = ["ssg"]
+
+[[bin]]
+name = "hydrate"
+required-features = ["hydration"]
+
 [dependencies]
-yew = { version = "0.20.0", features = ["csr"] }
+yew = { version = "0.20.0", features = ["ssr", "hydration"] }
+
+[features]
+ssg = ["yew/ssr"]
+hydration = ["yew/hydration"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+log = "0.4.17"
+wasm-logger = "0.2.0"

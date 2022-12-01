@@ -1,6 +1,4 @@
-mod app;
-
-use app::App;
+use pages::app::App;
 
 fn main() {
     yew::Renderer::<App>::new().render();
