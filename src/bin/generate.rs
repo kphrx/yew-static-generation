@@ -1,13 +1,17 @@
-use async_recursion::async_recursion;
+use std::collections::HashMap;
 
-use async_std::prelude::*;
+use async_recursion::async_recursion;
 
 use async_std::fs;
 use async_std::io::Result;
-use async_std::path::Path;
+use async_std::path::{Path, PathBuf};
+use async_std::prelude::*;
 use async_std::task;
 
-use pages::app::App;
+use yew_router::Routable;
+
+use pages::app::{ServerApp as App, ServerAppProps};
+use pages::router::Route;
 
 #[async_recursion(?Send)]
 async fn copy_dir<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
@@ -85,12 +89,33 @@ async fn generate<P: AsRef<Path>, Q: AsRef<Path>>(dist_dir: P, static_dir: Q) ->
     let head = head.to_owned();
     let foot = foot.to_owned();
 
-    let renderer = yew::ServerRenderer::<App>::new();
-    let rendered = renderer.render().await;
+    for route in Route::routes().iter() {
+        let route_path = match Route::from_path(route, &HashMap::new()) {
+            Some(r) => Route::to_path(&r),
+            None => match Route::not_found_route() {
+                Some(r) => Route::to_path(&r),
+                None => String::from("/404"),
+            },
+        };
 
-    let mut generated_html = fs::File::create(static_dir.join("index.html")).await?;
+        let mut file_path = PathBuf::from(&route_path.clone());
+        if file_path.is_dir().await {
+            file_path.push("index");
+        }
+        file_path.set_extension("html");
+        if let Ok(path) = file_path.strip_prefix("/") {
+            file_path = path.to_path_buf();
+        }
+        let mut generate_html = fs::File::create(static_dir.join(file_path)).await?;
 
-    write!(generated_html, "{}{}{}", head, rendered, foot).await?;
+        let renderer = yew::ServerRenderer::<App>::with_props(move || ServerAppProps {
+            url: yew::AttrValue::from(route_path),
+            queries: HashMap::new(),
+        });
+        let rendered = renderer.render().await;
+
+        write!(generate_html, "{}{}{}", head, rendered, foot).await?;
+    }
 
     return Ok(());
 }
