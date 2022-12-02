@@ -37,7 +37,9 @@ async fn prepare_static_dir<P: AsRef<Path>, Q: AsRef<Path>>(
     let dist_dir = dist_dir.as_ref().to_owned();
     let static_dir = static_dir.as_ref().to_owned();
 
-    fs::remove_dir_all(&static_dir).await?;
+    if static_dir.exists().await {
+        fs::remove_dir_all(&static_dir).await?;
+    }
     fs::create_dir_all(&static_dir).await?;
 
     let mut entries = fs::read_dir(&dist_dir).await?;
