@@ -3,7 +3,6 @@ name: Deploy yew static generation
 on:
   push:
     branches: ["master"]
-
   workflow_dispatch:
 
 env:
@@ -22,6 +21,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Setup trunk
+        run: |
+          target add wasm32-unknown-unknown
+          cargo install --locked trunk
       - name: Checkout
         uses: actions/checkout@v3
         with:
