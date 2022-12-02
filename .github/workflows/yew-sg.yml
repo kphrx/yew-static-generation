@@ -1,0 +1,50 @@
+name: Deploy yew static generation
+
+on:
+  push:
+    branches: ["master"]
+
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v2
+      - name: Trunk asset
+        run: trunk build --release --public-url "${{ steps.pages.outputs.base_path }}/"
+      - name: Build generate
+        run: cargo run --features=ssg --bin generate --release
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: static/
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1
