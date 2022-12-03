@@ -21,14 +21,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup trunk
+      - name: Setup Rust with wasm32
         run: |
+          rustup set auto-self-update disable
+          rustup toolchain install stable --profile minimal
           rustup target add wasm32-unknown-unknown
-          cargo install --locked trunk
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2
+      - name: Setup Trunk
+        uses: jetli/trunk-action@v0.2.0
+        with:
+          version: latest
       - name: Checkout
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v2
