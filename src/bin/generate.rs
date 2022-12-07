@@ -66,17 +66,19 @@ async fn prepare_static_dir<P: AsRef<Path>, Q: AsRef<Path>>(
     return Ok(());
 }
 
-async fn base_index_html<P: AsRef<Path>>(dist_dir: P) -> Result<(String, String)> {
-    let dist_dir = dist_dir.as_ref().to_owned();
+async fn render(route_path: String) -> String {
+    let body = yew::ServerRenderer::<App>::with_props(move || {
+        let url = yew::AttrValue::from(route_path);
+        let queries = HashMap::new();
+        ServerAppProps {
+            url,
+            queries,
+        }
+    })
+    .render()
+    .await;
 
-    let hydrate_html = fs::read_to_string(dist_dir.join("index.html")).await?;
-
-    let (head, foot) = hydrate_html.split_once("<body>").unwrap();
-    let mut head = head.to_owned();
-    head.push_str("<body>");
-    let foot = foot.to_owned();
-
-    return Ok((head, foot));
+    return body;
 }
 
 async fn generate<P: AsRef<Path>, Q: AsRef<Path>>(dist_dir: P, static_dir: Q) -> Result<()> {
@@ -85,9 +87,7 @@ async fn generate<P: AsRef<Path>, Q: AsRef<Path>>(dist_dir: P, static_dir: Q) ->
 
     prepare_static_dir(&dist_dir, &static_dir).await?;
 
-    let (head, foot) = base_index_html(&dist_dir).await?;
-    let head = head.to_owned();
-    let foot = foot.to_owned();
+    let hydrate_html = fs::read_to_string(&dist_dir.join("index.html")).await?;
 
     for route in Route::routes().iter() {
         let route_path = match Route::from_path(route, &HashMap::new()) {
@@ -108,13 +108,11 @@ async fn generate<P: AsRef<Path>, Q: AsRef<Path>>(dist_dir: P, static_dir: Q) ->
         }
         let mut generate_html = fs::File::create(static_dir.join(file_path)).await?;
 
-        let renderer = yew::ServerRenderer::<App>::with_props(move || ServerAppProps {
-            url: yew::AttrValue::from(route_path),
-            queries: HashMap::new(),
-        });
-        let rendered = renderer.render().await;
+        let body = render(route_path).await;
 
-        write!(generate_html, "{}{}{}", head, rendered, foot).await?;
+        let template_html = hydrate_html
+            .replace("<!--%BODY_PLACEHOLDER%-->", &body);
+        write!(generate_html, "{}", template_html).await?;
     }
 
     return Ok(());

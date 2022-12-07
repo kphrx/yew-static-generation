@@ -40,7 +40,7 @@ pub fn server_app(props: &ServerAppProps) -> Html {
         .unwrap();
 
     html! {
-        <Router history={history}>
+        <Router {history}>
             <AppTemplate />
         </Router>
     }
