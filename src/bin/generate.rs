@@ -66,19 +66,31 @@ async fn prepare_static_dir<P: AsRef<Path>, Q: AsRef<Path>>(
     return Ok(());
 }
 
-async fn render(route_path: String) -> String {
+async fn render(route_path: String) -> (String, String) {
+    let (writer, reader) = stylist::manager::render_static();
     let body = yew::ServerRenderer::<App>::with_props(move || {
         let url = yew::AttrValue::from(route_path);
         let queries = HashMap::new();
+        let style_manager = stylist::manager::StyleManager::builder()
+            .writer(writer)
+            .build()
+            .expect("failed to create style manager.");
         ServerAppProps {
             url,
             queries,
+            style_manager,
         }
     })
     .render()
     .await;
 
-    return body;
+    let data = reader.read_style_data();
+
+    let mut head = String::new();
+    data.write_static_markup(&mut head)
+        .expect("failed to read styles from style manager");
+
+    return (head, body);
 }
 
 async fn generate<P: AsRef<Path>, Q: AsRef<Path>>(dist_dir: P, static_dir: Q) -> Result<()> {
@@ -108,9 +120,10 @@ async fn generate<P: AsRef<Path>, Q: AsRef<Path>>(dist_dir: P, static_dir: Q) ->
         }
         let mut generate_html = fs::File::create(static_dir.join(file_path)).await?;
 
-        let body = render(route_path).await;
+        let (head, body) = render(route_path).await;
 
         let template_html = hydrate_html
+            .replace("<!--%HEAD_PLACEHOLDER%-->", &head)
             .replace("<!--%BODY_PLACEHOLDER%-->", &body);
         write!(generate_html, "{}", template_html).await?;
     }
